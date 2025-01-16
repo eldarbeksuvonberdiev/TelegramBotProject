@@ -78,6 +78,13 @@ class TelegramRegistrationController extends Controller
         ]);
     }
 
+    private function getFile($fileId)
+    {
+        $url = $this->telegramApiUrl . "getFile";
+        $response = Http::post($url, ['file_id' => $fileId]);
+        return $response->json();
+    }
+
     public function handle(Request $request)
     {
         $chatId = $this->getChatId($request->all());
@@ -94,21 +101,59 @@ class TelegramRegistrationController extends Controller
 
             case 'registration':
 
-                $regStep = cache()->get("registration_step_as_{$chatId}");
+                $regStepAs = cache()->get("registration_step_as_{$chatId}");
 
-                if ($chatData == 'company' || $regStep == 'company') {
+                if ($chatData == 'company' || $regStepAs == 'company') {
+
                     cache()->put("registration_step_as_{$chatId}", 'company');
 
-                    $this->sendMessage($chatId, "Ok");
-                } elseif ($chatData == 'employee' || $regStep == 'employee') {
+                    $regStepComp = cache()->get("registration_company_{$chatId}", 'name');
+
+                    switch ($regStepComp) {
+                        case 'name':
+
+                            $this->sendMessage($chatId, "Please, enter a name for your company: ");
+
+                            cache()->put("registration_company_{$chatId}", 'logo');
+
+                            break;
+                        case 'logo':
+
+                            cache()->put("company_name_{$chatId}", $chatData);
+                            // $photoArr = end($update['message']['photo']) ?? null;
+                            // $photoInfo = $this->getFile($photoArr['file_id']);
+                            // $fileUrl = "https://api.telegram.org/file/bot" . env('TELEGRAM_BOT_TOKEN') . "/{$photoInfo['result']['file_path']}";
+                            // $uniqId = uniqid();
+                            // $photoPath = public_path("images/{$uniqId}.jpg");
+                            // $fileContent = file_get_contents($fileUrl);
+                            // file_put_contents($photoPath, $fileContent);
+                            $this->sendMessage($chatId, "All right, now please send a photo for your company:");
+
+                            cache()->put("registration_company_{$chatId}", 'longitude');
+                            break;
+                        case 'longitude':
+
+                            cache()->put("company_name_{$chatId}", $chatData);
+
+                            $this->sendMessage($chatId, "All right, now please send a photo for your company:");
+
+                            cache()->put("registration_company_{$chatId}", 'latitude');
+                            break;
+                        case 'latitude':
+
+                            cache()->put("company_name_{$chatId}", $chatData);
+
+                            $this->sendMessage($chatId, "All right, now please send a photo for your company:");
+
+                            // cache()->put("registration_company_{$chatId}", 'longitude');
+                            break;
+                    }
+                } elseif ($chatData == 'employee' || $regStepAs == 'employee') {
 
                     cache()->put("registration_step_as_{$chatId}", 'employee');
 
                     $this->sendMessage($chatId, "not ok");
                 }
-                break;
-            default:
-                //
                 break;
         }
     }
