@@ -20,6 +20,7 @@ return new class extends Migration
             $table->foreignId('company_id')->constrained('companies')->cascadeOnDelete();
             $table->string('role');
             $table->tinyInteger('status')->default(0);
+            $table->unsignedBigInteger('chat_id');
             $table->rememberToken();
             $table->timestamps();
         });
