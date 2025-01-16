@@ -46,6 +46,38 @@ class TelegramRegistrationController extends Controller
         return cache()->get("registration_step_{$chatId}");
     }
 
+    private function sendOptions(int $chatId, ?string $text = null)
+    {
+        if (!$text) {
+            $text = 'Please choose one of the options to registration, please: ';
+            $keyboards = [
+                [
+                    ['text' => 'As Company', 'callback_data' => "company"],
+                    ['text' => 'Company Employee', 'callback_data' => "employee"],
+                ]
+            ];
+        } else {
+            $keyboards = [];
+        }
+        Http::post($this->telegramApiUrl . 'sendMessage', [
+            'chat_id' => $chatId,
+            'text' => $text,
+            'reply_markup' => json_encode([
+                'inline_keyboard' => $keyboards,
+                'resize_keyboard' => true,
+                'one_time_keyboard' => true,
+            ]),
+        ]);
+    }
+
+    private function sendMessage(int $chatId, string $text)
+    {
+        Http::post($this->telegramApiUrl . 'sendMessage', [
+            'chat_id' => $chatId,
+            'text' => $text,
+        ]);
+    }
+
     public function handle(Request $request)
     {
         $chatId = $this->getChatId($request->all());
@@ -56,50 +88,27 @@ class TelegramRegistrationController extends Controller
         switch ($step) {
             case 'start':
             case '/start':
-                Http::post($this->telegramApiUrl . 'sendMessage', [
-                    'chat_id' => $chatId,
-                    'text' => 'Please choose an option below:',
-                    'reply_markup' => json_encode([
-                        'inline_keyboard' => [
-                            [
-                                ['text' => 'Accept ✅', 'callback_data' => "accept:{$chatId}"],
-                                ['text' => 'Reject ❌', 'callback_data' => "reject:{$chatId}"],
-                            ]
-                        ],
-                        'resize_keyboard' => true,
-                        'one_time_keyboard' => true,
-                    ]),
-                ]);
+                $this->sendOptions($chatId);
+                cache()->put("registration_step_{$chatId}", 'registration');
                 break;
 
+            case 'registration':
+
+                $regStep = cache()->get("registration_step_as_{$chatId}");
+
+                if ($chatData == 'company' || $regStep == 'company') {
+                    cache()->put("registration_step_as_{$chatId}", 'company');
+
+                    $this->sendMessage($chatId, "Ok");
+                } elseif ($chatData == 'employee' || $regStep == 'employee') {
+
+                    cache()->put("registration_step_as_{$chatId}", 'employee');
+
+                    $this->sendMessage($chatId, "not ok");
+                }
+                break;
             default:
-                Http::post($this->telegramApiUrl . 'sendMessage', [
-                    'chat_id' => $chatId,
-                    'text' => 'Please choose an option below:',
-                    'reply_markup' => json_encode([
-                        'keyboard' => [
-                            [
-                                ['text' => 'Active'],
-                                ['text' => 'Inactive'],
-                            ]
-                        ],
-                        'resize_keyboard' => true,
-                    ]),
-                ]);
-                Http::post($this->telegramApiUrl . 'sendMessage', [
-                    'chat_id' => $chatId,
-                    'text' => 'Please choose an option below:',
-                    'reply_markup' => json_encode([
-                        'inline_keyboard' => [
-                            [
-                                ['text' => 'Accept ✅', 'callback_data' => "accept:{$chatId}"],
-                                ['text' => 'Reject ❌', 'callback_data' => "reject:{$chatId}"],
-                            ]
-                        ],
-                        'resize_keyboard' => true,
-                        'one_time_keyboard' => true,
-                    ]),
-                ]);
+                //
                 break;
         }
     }
