@@ -236,6 +236,78 @@ class TelegramRegistrationController extends Controller
                     }
                 } elseif ($chatData == 'employee' || $regStepAs == 'employee') {
 
+                    $regStepEmployee = cache()->get("registration_company_{$chatId}", 'start');
+                    switch ($regStepEmployee) {
+                        case 'start':
+
+                            $this->sendMessage($chatId, "Please, enter a name for your company: ");
+
+                            cache()->put("registration_company_{$chatId}", 'name');
+
+                            break;
+                        case 'name':
+
+                            $this->deleteMessage($chatId, $messageId - 1);
+                            $this->deleteMessage($chatId, $messageId);
+
+                            cache()->put("company_name_{$chatId}", $chatData);
+
+                            $this->sendMessage($chatId, "Please, send a photo for your company!");
+
+                            cache()->put("registration_company_{$chatId}", 'logo');
+
+                            break;
+                        case 'logo':
+
+                            if ($chatData == 'photo') {
+
+                                $this->deleteMessage($chatId, $messageId - 1);
+                                $this->deleteMessage($chatId, $messageId);
+
+                                $this->getPhotoAndStore($chatId, $data);
+
+                                $this->sendMessage($chatId, "Now, please send your company's location longitude(Uzunlik):");
+
+                                cache()->put("registration_company_{$chatId}", 'longitude');
+                            } else {
+                                $this->deleteMessage($chatId, $messageId - 1);
+                                $this->deleteMessage($chatId, $messageId);
+                                $this->sendMessage($chatId, "Please, send a photo for your company, nothing else!😌");
+                            }
+                            break;
+                        case 'longitude':
+
+                            $this->deleteMessage($chatId, $messageId - 1);
+                            $this->deleteMessage($chatId, $messageId);
+
+                            cache()->put("company_longitude_{$chatId}", $chatData);
+
+                            $this->sendMessage($chatId, "Now, please send your company's location latitude(Kenglik):");
+
+                            cache()->put("registration_company_{$chatId}", 'latitude');
+
+                            break;
+                        case 'latitude':
+
+                            $this->deleteMessage($chatId, $messageId - 1);
+                            $this->deleteMessage($chatId, $messageId);
+
+                            $this->sendMessage($chatId, "Your company has been created. Now you need to register for yourself!");
+
+                            $company = Company::create([
+                                'name' => cache()->get("company_name_{$chatId}"),
+                                'logo' => cache()->get("photo_path_{$chatId}"),
+                                'longitude' => cache()->get("company_longitude_{$chatId}"),
+                                'latitude' => $chatData
+                            ]);
+                            $company = Company::where('id', $company->id)->first();
+                            $this->sendCompanyInfo($chatId, $company);
+
+                            cache()->forget("registration_company_{$chatId}");
+                            cache()->put("registration_step_as_{$chatId}", 'employee');
+
+                            break;
+                    }
                     cache()->put("registration_step_as_{$chatId}", 'employee');
 
                     $this->sendMessage($chatId, "not ok");
