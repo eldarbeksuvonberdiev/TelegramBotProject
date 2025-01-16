@@ -18,7 +18,7 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->foreignId('company_id')->constrained('companies')->cascadeOnDelete();
-            $table->string('role');
+            $table->string('role')->default('employee');
             $table->tinyInteger('status')->default(0);
             $table->unsignedBigInteger('chat_id');
             $table->rememberToken();

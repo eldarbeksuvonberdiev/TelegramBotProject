@@ -32,6 +32,8 @@ class TelegramRegistrationController extends Controller
             return $data['message']['text'];
         } elseif (isset($data['callback_query']['data'])) {
             return $data['callback_query']['data'];
+        } elseif (isset($data['message']['photo'])) {
+            return 'photo';
         }
         return null;
     }
@@ -39,7 +41,7 @@ class TelegramRegistrationController extends Controller
     private function getStep(int $chatId, string $data)
     {
         $data = strtolower($data);
-        if ($data == 'start' || $data == '/start') {
+        if ($data == 'start' || $data == '/start' || !(cache()->get("registration_step_{$chatId}"))) {
             cache()->forget("registration_step_{$chatId}");
             return cache()->get("registration_step_{$chatId}", 'start');
         }
@@ -85,12 +87,30 @@ class TelegramRegistrationController extends Controller
         return $response->json();
     }
 
+    private function getPhotoAndStore($chatId, $data)
+    {
+        $photoArr = end($data['message']['photo']) ?? null;
+        $photoInfo = $this->getFile($photoArr['file_id']);
+        $fileUrl = "https://api.telegram.org/file/bot" . env('TELEGRAM_BOT_TOKEN') . "/{$photoInfo['result']['file_path']}";
+        $uniqId = uniqid();
+        $photoPath = public_path("images/{$uniqId}.jpg");
+        $fileContent = file_get_contents($fileUrl);
+        file_put_contents($photoPath, $fileContent);
+
+        cache()->put("photo_path_{$chatId}", "images/$uniqId.jpg");
+    }
+
     public function handle(Request $request)
     {
-        $chatId = $this->getChatId($request->all());
-        $chatData = $this->getChatData($request->all());
+        $data = $request->all();
+
+        $chatId = $this->getChatId($data);
+
+        $chatData = $this->getChatData($data);
+
         $step = $this->getStep($chatId, $chatData);
-        Log::info([$chatId, $chatData, $step, $request->all()]);
+
+        // Log::info([$chatId, $chatData, $data, $step]);
 
         switch ($step) {
             case 'start':
@@ -120,22 +140,20 @@ class TelegramRegistrationController extends Controller
                         case 'logo':
 
                             cache()->put("company_name_{$chatId}", $chatData);
-                            // $photoArr = end($update['message']['photo']) ?? null;
-                            // $photoInfo = $this->getFile($photoArr['file_id']);
-                            // $fileUrl = "https://api.telegram.org/file/bot" . env('TELEGRAM_BOT_TOKEN') . "/{$photoInfo['result']['file_path']}";
-                            // $uniqId = uniqid();
-                            // $photoPath = public_path("images/{$uniqId}.jpg");
-                            // $fileContent = file_get_contents($fileUrl);
-                            // file_put_contents($photoPath, $fileContent);
-                            $this->sendMessage($chatId, "All right, now please send a photo for your company:");
+                            if ($chatData == 'photo') {
 
-                            cache()->put("registration_company_{$chatId}", 'longitude');
+                                $this->getPhotoAndStore($chatId, $data);
+
+                                $this->sendMessage($chatId, "Now, please send your company's location longitude(Uzunlik):");
+
+                                cache()->put("registration_company_{$chatId}", 'longitude');
+                            }
                             break;
                         case 'longitude':
 
                             cache()->put("company_name_{$chatId}", $chatData);
 
-                            $this->sendMessage($chatId, "All right, now please send a photo for your company:");
+                            $this->sendMessage($chatId, "Now, please send your company's location latitude(Kenglik):");
 
                             cache()->put("registration_company_{$chatId}", 'latitude');
                             break;
@@ -143,7 +161,7 @@ class TelegramRegistrationController extends Controller
 
                             cache()->put("company_name_{$chatId}", $chatData);
 
-                            $this->sendMessage($chatId, "All right, now please send a photo for your company:");
+                            $this->sendMessage($chatId, "Your company has been created. Now you need to register for yourself!");
 
                             // cache()->put("registration_company_{$chatId}", 'longitude');
                             break;
