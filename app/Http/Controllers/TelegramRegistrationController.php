@@ -127,19 +127,26 @@ class TelegramRegistrationController extends Controller
 
                     cache()->put("registration_step_as_{$chatId}", 'company');
 
-                    $regStepComp = cache()->get("registration_company_{$chatId}", 'name');
+                    $regStepComp = cache()->get("registration_company_{$chatId}", 'start');
 
                     switch ($regStepComp) {
-                        case 'name':
+                        case 'start':
 
                             $this->sendMessage($chatId, "Please, enter a name for your company: ");
+
+                            cache()->put("registration_company_{$chatId}", 'name');
+
+                            break;
+                        case 'name':
+
+                            cache()->put("company_name_{$chatId}", $chatData);
+                            $this->sendMessage($chatId, "Please, send a photo for your company!");
 
                             cache()->put("registration_company_{$chatId}", 'logo');
 
                             break;
                         case 'logo':
 
-                            cache()->put("company_name_{$chatId}", $chatData);
                             if ($chatData == 'photo') {
 
                                 $this->getPhotoAndStore($chatId, $data);
@@ -147,19 +154,17 @@ class TelegramRegistrationController extends Controller
                                 $this->sendMessage($chatId, "Now, please send your company's location longitude(Uzunlik):");
 
                                 cache()->put("registration_company_{$chatId}", 'longitude');
+                            } else {
+                                $this->sendMessage($chatId, "Please, send a photo for your company, nothing else!😌");
                             }
                             break;
                         case 'longitude':
-
-                            cache()->put("company_name_{$chatId}", $chatData);
 
                             $this->sendMessage($chatId, "Now, please send your company's location latitude(Kenglik):");
 
                             cache()->put("registration_company_{$chatId}", 'latitude');
                             break;
                         case 'latitude':
-
-                            cache()->put("company_name_{$chatId}", $chatData);
 
                             $this->sendMessage($chatId, "Your company has been created. Now you need to register for yourself!");
 

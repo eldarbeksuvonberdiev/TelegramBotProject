@@ -22,17 +22,5 @@ class DatabaseSeeder extends Seeder
         //     'email' => 'test@example.com',
         // ]);
 
-        for ($i = 1; $i <= 10; $i++) {
-            Category::create([
-                'name' => fake()->name()
-            ]);
-        }
-
-        for ($i = 1; $i <= 100; $i++) {
-            Product::create([
-                'category_id' => rand(1,10),
-                'name' => fake()->name()
-            ]);
-        }
     }
 }
