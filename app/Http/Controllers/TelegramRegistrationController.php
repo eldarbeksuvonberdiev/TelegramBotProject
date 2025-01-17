@@ -324,7 +324,7 @@ class TelegramRegistrationController extends Controller
                                     'email' => cache()->get("employee_email_{$chatId}"),
                                     'password' => Hash::make($chatData),
                                     'role' => 'company_admin',
-                                    'company_id' => cache()->get("created_company_id_{$chatID}"),
+                                    'company_id' => cache()->get("created_company_id_{$chatId}"),
                                     'chat_id' => $chatId
                                 ]);
                                 cache()->forget("registration_employee_{$chatId}");
