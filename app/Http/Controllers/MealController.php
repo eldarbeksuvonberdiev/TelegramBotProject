@@ -18,4 +18,26 @@ class MealController extends Controller
     {
         return view('meal.create');
     }
+
+    public function store(Request $request)
+    {
+       $data = $request->validate([
+            'name' => 'required',
+            'price' => 'required'
+       ]);
+
+       Meal::create($data);
+       return redirect()->route('meal');
+    }
+
+
+    public function addToCart(Meal $meal)
+    {
+        dd($meal);
+    }
+
+    public function cart()
+    {
+        return view('meal.cart');
+    }
 }

@@ -13,7 +13,8 @@
                     <tr>
                         <th>#</th>
                         <th>Name</th>
-                        <th>Edit</th>
+                        <th>Price</th>
+                        <th>To cart</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -23,7 +24,7 @@
                             <td>{{ $meal->name }}</td>
                             <td>{{ $meal->price }}</td>
                             <td>
-                                <a href="{{ route('meal.addToCart',$meal->id) }}" class="btn btn-outline-primary">To Cart <i class="bi bi-cart2"></i></a>
+                                <a href="{{ route('meal.toCart',$meal->id) }}" class="btn btn-outline-primary">To Cart <i class="bi bi-cart2"></i></a>
                             </td>
                         </tr>
                     @endforeach
