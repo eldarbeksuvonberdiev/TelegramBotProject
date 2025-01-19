@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\Meal;
 use Illuminate\Http\Request;
 
@@ -38,6 +39,12 @@ class MealController extends Controller
 
     public function cart()
     {
-        return view('meal.cart');
+        $companies = Company::where('status', 1)->get();
+        return view('meal.cart', compact('companies'));
+    }
+
+    public function send(Request $request)
+    {
+        dd($request->all());
     }
 }

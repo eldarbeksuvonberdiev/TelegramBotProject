@@ -22,6 +22,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/meal-store',[MealController::class, 'store'])->name('meal.store');
     Route::post('/meal-to-cart/{meal}',[MealController::class, 'addToCart'])->name('meal.toCart');
     Route::get('/meal-cart',[MealController::class, 'cart'])->name('meal.cart');
+    Route::post('/meal-send',[MealController::class, 'send'])->name('meal.send');
 });
 
 require __DIR__.'/auth.php';
