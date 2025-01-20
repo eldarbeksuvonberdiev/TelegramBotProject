@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Cart;
+use App\Models\CartItems;
 use App\Models\Company;
+use App\Models\Meal;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -156,6 +159,46 @@ class TelegramRegistrationController extends Controller
         ]);
     }
 
+    private function sendMessageMeal($chatId, $mealName)
+    {
+        // Log::info('Man sho\'rda');
+        Http::post($this->telegramApiUrl . 'sendMessage', [
+            'chat_id' => $chatId,
+            'text' => 'Enter the count of ' . $mealName . ' portion : ',
+            'reply_markup' => json_encode([
+                'inline_keyboard' => [
+                    [
+                        ['text' => 'Back 🔙', 'callback_data' => 'back'],
+                    ]
+                ],
+                'resize_keyboard' => true,
+                'one_time_keyboard' => true,
+            ]),
+        ]);
+    }
+
+    private function sendMenuAgain($chatId, $menu, ?array $additionalKeyboard)
+    {
+        if ($additionalKeyboard) {
+            $menu = array_merge($menu, array_chunk($additionalKeyboard, 2));
+        }
+
+        Http::post($this->telegramApiUrl . 'sendMessage', [
+            'chat_id' => $chatId,
+            'text' => 'Today\'s menu(Please, make your order until 11 am 😉):',
+            'reply_markup' => json_encode([
+                'inline_keyboard' => $menu,
+                'resize_keyboard' => true,
+                'one_time_keyboard' => true,
+            ]),
+        ]);
+    }
+
+    private function sendCart($chatId, $cartItems)
+    {  
+        
+    }
+
     public function handle(Request $request)
     {
         $data = $request->all();
@@ -169,6 +212,15 @@ class TelegramRegistrationController extends Controller
         $messageId = $this->getMessageId($data);
 
         $user = User::where('chat_id', $chatId)->first();
+
+        $additionToKeyboard = [
+            ['text' => "Show cart 🛒", 'callback_data' => "cart"],
+            ['text' => "Order", 'callback_data' => "order"]
+        ];
+
+        if (isset($data['callback_query']['data']) && strpos($data['callback_query']['data'], ":")) {
+            $keyboards = $data['callback_query']['message']['reply_markup']['inline_keyboard'];
+        }
         // Log::info([$data]);
 
         if (!$user) {
@@ -179,51 +231,51 @@ class TelegramRegistrationController extends Controller
                     $this->deleteMessage($chatId, $messageId);
                     cache()->put("registration_step_{$chatId}", 'registration');
                     break;
-    
+
                 case 'registration':
                     $regStepAs = cache()->get("registration_step_as_{$chatId}");
                     // Log::info([$regStepAs, $data]);
-    
+
                     if ($chatData == 'company' || $regStepAs == 'company') {
-    
+
                         $this->deleteMessage($chatId, $messageId - 1);
                         $this->deleteMessage($chatId, $messageId);
-    
+
                         cache()->put("registration_step_as_{$chatId}", 'company');
-    
+
                         $regStepComp = cache()->get("registration_company_{$chatId}", 'start');
-    
+
                         switch ($regStepComp) {
                             case 'start':
-    
+
                                 $this->sendMessage($chatId, "Please, enter a name for your company: ");
-    
+
                                 cache()->put("registration_company_{$chatId}", 'name');
-    
+
                                 break;
                             case 'name':
-    
+
                                 $this->deleteMessage($chatId, $messageId - 1);
                                 $this->deleteMessage($chatId, $messageId);
-    
+
                                 cache()->put("company_name_{$chatId}", $chatData);
-    
+
                                 $this->sendMessage($chatId, "Please, send a photo for your company!");
-    
+
                                 cache()->put("registration_company_{$chatId}", 'logo');
-    
+
                                 break;
                             case 'logo':
-    
+
                                 if ($chatData == 'photo') {
-    
+
                                     $this->deleteMessage($chatId, $messageId - 1);
                                     $this->deleteMessage($chatId, $messageId);
-    
+
                                     $this->getPhotoAndStore($chatId, $data);
-    
+
                                     $this->sendMessage($chatId, "Now, please send your company's location longitude(Uzunlik):");
-    
+
                                     cache()->put("registration_company_{$chatId}", 'longitude');
                                 } else {
                                     $this->deleteMessage($chatId, $messageId - 1);
@@ -232,24 +284,24 @@ class TelegramRegistrationController extends Controller
                                 }
                                 break;
                             case 'longitude':
-    
+
                                 $this->deleteMessage($chatId, $messageId - 1);
                                 $this->deleteMessage($chatId, $messageId);
-    
+
                                 cache()->put("company_longitude_{$chatId}", $chatData);
-    
+
                                 $this->sendMessage($chatId, "Now, please send your company's location latitude(Kenglik):");
-    
+
                                 cache()->put("registration_company_{$chatId}", 'latitude');
-    
+
                                 break;
                             case 'latitude':
-    
+
                                 $this->deleteMessage($chatId, $messageId - 1);
                                 $this->deleteMessage($chatId, $messageId);
-    
+
                                 $this->sendMessage($chatId, "Your company has been created. Now you need to register for yourself!");
-    
+
                                 $company = Company::create([
                                     'name' => cache()->get("company_name_{$chatId}"),
                                     'logo' => cache()->get("photo_path_{$chatId}"),
@@ -258,61 +310,61 @@ class TelegramRegistrationController extends Controller
                                 ]);
                                 $company = Company::where('id', $company->id)->first();
                                 $this->sendCompanyInfo($chatId, $company);
-    
+
                                 cache()->put("created_company_id_{$chatId}", $company->id);
-    
+
                                 cache()->forget("registration_company_{$chatId}");
-    
+
                                 $regStepAs = 'employee';
-    
+
                                 cache()->put("registration_step_as_{$chatId}", 'employee');
-    
+
                                 break;
                         }
                     }
                     if ($chatData == 'employee' || $regStepAs == 'employee') {
-    
+
                         $regStepAs = cache()->put("registration_step_as_{$chatId}", 'employee');
-    
+
                         $regStepEmployee = cache()->get("registration_employee_{$chatId}", 'start');
-    
+
                         // Log::info([$regStepAs, $chatData, $regStepEmployee]);
-    
+
                         switch ($regStepEmployee) {
                             case 'start':
-    
+
                                 $this->sendMessage($chatId, "Please, enter your name: ");
-    
+
                                 cache()->put("registration_employee_{$chatId}", 'name');
-    
+
                                 break;
                             case 'name':
-    
+
                                 $this->deleteMessage($chatId, $messageId - 1);
                                 $this->deleteMessage($chatId, $messageId);
-    
+
                                 cache()->put("employee_name_{$chatId}", $chatData);
-    
+
                                 $this->sendMessage($chatId, "Please, send a email!");
-    
+
                                 cache()->put("registration_employee_{$chatId}", 'email');
-    
+
                                 break;
                             case 'email':
-    
+
                                 $this->sendMessage($chatId, "Please, send password");
                                 cache()->put("employee_email_{$chatId}", $chatData);
-    
+
                                 cache()->put("registration_employee_{$chatId}", 'password');
-    
+
                                 break;
-    
+
                                 $this->deleteMessage($chatId, $messageId - 1);
                                 $this->deleteMessage($chatId, $messageId);
-    
+
                                 break;
                             case 'password':
-    
+
                                 $company = '';
                                 $id = '';
                                 if (strpos($chatData, ":")) {
@@ -320,7 +372,7 @@ class TelegramRegistrationController extends Controller
                                     Log::info([$company, $id]);
                                 }
                                 if (cache()->get("created_company_id_{$chatId}") !== null) {
-    
+
                                     User::create([
                                         'name' => cache()->get("employee_name_{$chatId}"),
                                         'email' => cache()->get("employee_email_{$chatId}"),
@@ -339,25 +391,106 @@ class TelegramRegistrationController extends Controller
                                         'chat_id' => $chatId
                                     ]);
                                 } else {
-    
+
                                     $this->sendMessage($chatId, "Your should choose one of this companies!");
                                     $companies = Company::where('status', 1)->get();
                                     $this->sendCompaniesToUser($chatId, $companies);
                                     break;
                                 }
                                 $this->sendMessage($chatId, "Your user account also has been created!:)");
-    
-    
+
+
                                 $this->deleteMessage($chatId, $messageId - 1);
                                 $this->deleteMessage($chatId, $messageId);
-    
+
                                 break;
                         }
                     }
                     break;
             }
-        }else {
-            $this->sendMessage($chatId, "Wait for information from your company owner! :)");
+        }
+        if (stripos($chatData, ":")) {
+
+            list($key, $id) = explode(":", $chatData);
+
+            switch ($key) {
+                case 'meal_id':
+                    $this->deleteMessage($chatId, $messageId);
+                    $this->sendMessageMeal($chatId, Meal::where('id', $id)->first()->name);
+
+                    cache()->put("meal_to_cart_{$chatId}", $id);
+
+                    break;
+            }
+        } else {
+
+            switch ($chatData) {
+                case 'back':
+                    cache()->forget("meal_to_cart_{$chatId}");
+                    $this->deleteMessage($chatId, $messageId);
+                    $this->sendMenuAgain($chatId, cache()->get('menu_keyboards'), []);
+                    break;
+                case 'cart':
+                    $this->sendCart($chatId, Cart::where('user_id', User::where('chat_id', $chatId)->first()->id)->first()->cartItems);
+                    break;
+                case 'order':
+
+                    break;
+                default:
+
+                    $cartFor = cache()->get("cart_{$chatId}", []);
+
+                    if (!$cartFor) {
+
+
+
+                        $this->deleteMessage($chatId, $messageId);
+                        $this->deleteMessage($chatId, $messageId - 1);
+
+                        $cartEx = Cart::where('date', now()->format('Y-m-d'))->where('user_id', User::where('chat_id', $chatId)->first()->id)->first();
+
+                        if (!$cartEx) {
+                            $cart = Cart::create([
+                                'name' => "something",
+                                'user_id' => User::where('chat_id', $chatId)->first()->id,
+                                'date' => now()->format('Y-m-d'),
+                                'summ' => 0
+                            ]);
+
+                            CartItems::create([
+                                'cart_id' => $cart->id,
+                                'meal_id' => cache()->get("meal_to_cart_{$chatId}"),
+                                'count' => $chatData
+                            ]);
+
+                            cache()->put("cart_{$chatId}", $cart->id);
+                            cache()->forget("meal_to_cart_{$chatId}");
+
+                            $this->sendMenuAgain($chatId, cache()->get('menu_keyboards'), $additionToKeyboard);
+                        } else {
+                            $this->sendMessage($chatId, "You have ordered for today");
+                        }
+                    } else {
+
+                        CartItems::updateOrCreate(
+                            [
+                                'cart_id' => cache()->get("cart_{$chatId}"),
+                            ],
+                            [
+                                'cart_id' => cache()->get("cart_{$chatId}"),
+                                'meal_id' => cache()->get("meal_to_cart_{$chatId}"),
+                                'count' => $chatData
+                            ]
+                        );
+
+                        $this->deleteMessage($chatId, $messageId);
+                        $this->deleteMessage($chatId, $messageId - 1);
+
+                        $this->sendMenuAgain($chatId, cache()->get('menu_keyboards'), $additionToKeyboard);
+                    }
+
+                    break;
+            }
         }
     }
 }

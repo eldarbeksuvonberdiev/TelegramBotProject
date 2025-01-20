@@ -10,6 +10,11 @@ class Cart extends Model
         'name',
         'user_id',
         'date',
-        'sum'
+        'summ'
     ];
+
+    public function cartItems()
+    {
+        return $this->hasMany(CartItems::class, 'cart_id');
+    }
 }

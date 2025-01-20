@@ -71,6 +71,7 @@ class MealController extends Controller
             foreach ($users as $user) {
                 $this->sendMenu($user->chat_id, $cart);
             }
+            session()->forget('cart');
         } else {
             return back()->with('message', 'Please, add some meal to cart first! :)');
         }
@@ -85,10 +86,12 @@ class MealController extends Controller
         foreach ($menu as $id => $value) {
 
             $keyboards[] =
-                ['text' => "{$value['name']}", 'callback_data' => "company_id:$id"];
+                ['text' => "{$value['name']}", 'callback_data' => "meal_id:$id"];
         }
 
         $keyboard = array_merge(array_chunk($keyboards, 3));
+
+        cache()->put('menu_keyboards', $keyboard);
 
         $response = Http::post($this->telegramApiUrl . 'sendMessage', [
             'chat_id' => $chatId,
@@ -99,6 +102,6 @@ class MealController extends Controller
                 'one_time_keyboard' => true,
             ]),
         ]);
-        Log::info([$keyboard, $chatId, $response]);
+        // Log::info([$keyboard, $chatId, $response]);
     }
 }
