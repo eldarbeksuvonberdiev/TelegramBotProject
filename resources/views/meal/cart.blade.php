@@ -10,6 +10,11 @@
         <div class="col-12">
             <div class="form-group">
                 <label><strong>Select a companies</strong></label>
+                @if (session('message'))
+                    <div class="alert alert-danger">
+                        {{ session('message') }}
+                    </div>
+                @endif
                 <form action="{{ route('meal.send') }}" method="post">
                     @csrf
                     <div class="select2-purple">

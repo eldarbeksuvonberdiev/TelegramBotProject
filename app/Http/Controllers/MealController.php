@@ -7,10 +7,19 @@ use App\Models\Company;
 use App\Models\Meal;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class MealController extends Controller
 {
+
+    protected $telegramApiUrl;
+
+    public function __construct()
+    {
+        $this->telegramApiUrl = "https://api.telegram.org/bot" . env('TELEGRAM_BOT_TOKEN') . "/";
+    }
+
     public function index()
     {
         $meals = Meal::all();
@@ -56,11 +65,40 @@ class MealController extends Controller
         $data = $request->validate([
             'companies' => 'required|exists:companies,id'
         ]);
-        foreach ($data['companies'] as $val) {
-            $user = User::where('role', 'company_admin')->where('company_id',$val)->first();
-            // dd($user);
-            // Log::info([$val, $user]);
+        $users = User::where('role', 'company_admin')->whereIn('company_id', $data['companies'])->get();
+        $cart = session()->get('cart', []);
+        if ($cart) {
+            foreach ($users as $user) {
+                $this->sendMenu($user->chat_id, $cart);
+            }
+        } else {
+            return back()->with('message', 'Please, add some meal to cart first! :)');
         }
-        return back();
+
+        return redirect()->route('meal')->with('message', 'Today\' menu has been sent to companies! :)');
+    }
+
+    protected function sendMenu($chatId, $menu)
+    {
+        $keyboards = [];
+
+        foreach ($menu as $id => $value) {
+
+            $keyboards[] =
+                ['text' => "{$value['name']}", 'callback_data' => "company_id:$id"];
+        }
+
+        $keyboard = array_merge(array_chunk($keyboards, 3));
+
+        $response = Http::post($this->telegramApiUrl . 'sendMessage', [
+            'chat_id' => $chatId,
+            'text' => 'Today\'s menu(Please, make your order until 11 am 😉):',
+            'reply_markup' => json_encode([
+                'inline_keyboard' => $keyboard,
+                'resize_keyboard' => true,
+                'one_time_keyboard' => true,
+            ]),
+        ]);
+        Log::info([$keyboard, $chatId, $response]);
     }
 }
