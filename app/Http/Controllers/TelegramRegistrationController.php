@@ -197,27 +197,36 @@ class TelegramRegistrationController extends Controller
     private function sendCart($chatId, $cartItems)
     {
         foreach ($cartItems as $cartItem) {
-            Log::info([$cartItem->meal->name]);
+            // Log::info([$cartItem->meal->name]);
+            $name = $cartItem->meal->name;
+            $count = $cartItem->count;
             Http::post($this->telegramApiUrl . "sendMessage", [
                 'chat_id' => $chatId,
-                'text' => "Name: {$cartItem->meal->name}\n" .
-                    "Count: {$cartItem->count}",
+                'text' => "Name: {$name}\nCount: {$count}",
                 'reply_markup' => json_encode([
                     'inline_keyboard' => [
-                        ['text' => 'Delete', 'callback_data' => "delete:{$cartItem->id}"],
+                        [
+                            ['text' => 'Delete', 'callback_data' => "delete:{$cartItem->id}"],
+                        ]
                     ],
                     'resize_keyboard' => true,
                     'one_time_keyboard' => true,
                 ])
             ]);
+            // Http::post($this->telegramApiUrl . 'sendMessage', [
+            //     'chat_id' => $chatId,
+            //     'text' => "$name, $count",
+            // ]);
         }
         Http::post($this->telegramApiUrl . "sendMessage", [
             'chat_id' => $chatId,
             'text' => "Confirm order or go back to the menu",
             'reply_markup' => json_encode([
                 'inline_keyboard' => [
-                    ['text' => 'Connfirm Order', 'callback_data' => "confirm"],
-                    ['text' => 'Back to Menu', 'callback_data' => "menu"],
+                    [
+                        ['text' => 'Confirm Order', 'callback_data' => "confirm"],
+                        ['text' => 'Back to Menu', 'callback_data' => "menu"],
+                    ]
                 ],
                 'resize_keyboard' => true,
                 'one_time_keyboard' => true,
