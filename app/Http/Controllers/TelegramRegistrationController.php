@@ -209,6 +209,7 @@ class TelegramRegistrationController extends Controller
                     'inline_keyboard' => [
                         [
                             ['text' => 'Delete', 'callback_data' => "delete:{$cartItem->id}"],
+                            ['text' => 'Edit portion', 'callback_data' => "edit:{$cartItem->id}"],
                         ]
                     ],
                     'resize_keyboard' => true,
@@ -444,7 +445,20 @@ class TelegramRegistrationController extends Controller
                     break;
             }
         }
-        if (stripos($chatData, ":")) {
+        $mealEdit = cache()->get("cart_meal_portion_edit_{$chatId}", []);
+
+        if ($mealEdit) {
+
+            CartItems::where('id', $mealEdit)->update([
+                'count' => $chatData
+            ]);
+
+            $this->sendMenuAgain($chatId, cache()->get('menu_keyboards'), $additionToKeyboard);
+
+            cache()->forget("cart_meal_portion_edit_{$chatId}");
+        }
+
+        if (stripos($chatData, ":") || $mealEdit) {
 
             list($key, $id) = explode(":", $chatData);
 
@@ -455,6 +469,26 @@ class TelegramRegistrationController extends Controller
 
                     cache()->put("meal_to_cart_{$chatId}", $id);
 
+                    break;
+                case 'edit':
+
+                    cache()->put("cart_meal_portion_edit_{$chatId}", $id);
+
+                    $this->deleteMessage($chatId, $messageId);
+
+                    $this->sendMessageMeal($chatId, CartItems::where('id', $id)->first()->meal->name);
+
+                    break;
+                case 'delete':
+
+
+                    $this->deleteMessage($chatId, $messageId);
+                    $this->deleteMessage($chatId, $messageId - 1);
+
+                    CartItems::where('id', $id)->delete();
+
+                    $this->sendMenuAgain($chatId, cache()->get('menu_keyboards'), $additionToKeyboard);
+                    
                     break;
             }
         } else {
