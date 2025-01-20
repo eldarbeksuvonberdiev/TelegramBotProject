@@ -7,6 +7,8 @@ use App\Models\Cart;
 use App\Models\CartItems;
 use App\Models\Company;
 use App\Models\Meal;
+use App\Models\Order;
+use App\Models\OrderItems;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -213,10 +215,6 @@ class TelegramRegistrationController extends Controller
                     'one_time_keyboard' => true,
                 ])
             ]);
-            // Http::post($this->telegramApiUrl . 'sendMessage', [
-            //     'chat_id' => $chatId,
-            //     'text' => "$name, $count",
-            // ]);
         }
         Http::post($this->telegramApiUrl . "sendMessage", [
             'chat_id' => $chatId,
@@ -233,6 +231,8 @@ class TelegramRegistrationController extends Controller
             ])
         ]);
     }
+
+
 
     public function handle(Request $request)
     {
@@ -469,7 +469,29 @@ class TelegramRegistrationController extends Controller
                     $this->sendCart($chatId, Cart::where('user_id', User::where('chat_id', $chatId)->first()->id)->first()->cartItems);
                     break;
                 case 'order':
+                    $tempCartId = cache()->get("cart_{$chatId}");
+                    $tempCart = Cart::where('id', $tempCartId)->first();
 
+                    $order = Order::create([
+                        'company_id' => $tempCart->user->company_id,
+                        'user_id' => $tempCart->user_id,
+                        'summ' => $tempCart->summ,
+                        'date' => now()->format('Y-m-d')
+                    ]);
+
+                    foreach ($tempCart->cartItems as $temp) {
+                        OrderItems::create([
+                            'order_id' => $order->id,
+                            'meal_id' => $temp->meal_id,
+                            'count' => $temp->count
+                        ]);
+                    }
+
+                    $temp->delete();
+                    $this->sendMessage($chatId, "Your order has been recorded! :)");
+                    break;
+                case 'menu':
+                    $this->sendMenuAgain($chatId, cache()->get('menu_keyboards'), $additionToKeyboard);
                     break;
                 default:
 
