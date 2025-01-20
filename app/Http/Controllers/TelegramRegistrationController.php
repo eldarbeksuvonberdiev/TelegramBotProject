@@ -195,8 +195,34 @@ class TelegramRegistrationController extends Controller
     }
 
     private function sendCart($chatId, $cartItems)
-    {  
-        
+    {
+        foreach ($cartItems as $cartItem) {
+            Log::info([$cartItem->meal->name]);
+            Http::post($this->telegramApiUrl . "sendMessage", [
+                'chat_id' => $chatId,
+                'text' => "Name: {$cartItem->meal->name}\n" .
+                    "Count: {$cartItem->count}",
+                'reply_markup' => json_encode([
+                    'inline_keyboard' => [
+                        ['text' => 'Delete', 'callback_data' => "delete:{$cartItem->id}"],
+                    ],
+                    'resize_keyboard' => true,
+                    'one_time_keyboard' => true,
+                ])
+            ]);
+        }
+        Http::post($this->telegramApiUrl . "sendMessage", [
+            'chat_id' => $chatId,
+            'text' => "Confirm order or go back to the menu",
+            'reply_markup' => json_encode([
+                'inline_keyboard' => [
+                    ['text' => 'Connfirm Order', 'callback_data' => "confirm"],
+                    ['text' => 'Back to Menu', 'callback_data' => "menu"],
+                ],
+                'resize_keyboard' => true,
+                'one_time_keyboard' => true,
+            ])
+        ]);
     }
 
     public function handle(Request $request)
@@ -215,7 +241,7 @@ class TelegramRegistrationController extends Controller
 
         $additionToKeyboard = [
             ['text' => "Show cart 🛒", 'callback_data' => "cart"],
-            ['text' => "Order", 'callback_data' => "order"]
+            ['text' => "Order 🛵", 'callback_data' => "order"]
         ];
 
         if (isset($data['callback_query']['data']) && strpos($data['callback_query']['data'], ":")) {
@@ -473,14 +499,8 @@ class TelegramRegistrationController extends Controller
                     } else {
 
                         CartItems::updateOrCreate(
-                            [
-                                'cart_id' => cache()->get("cart_{$chatId}"),
-                            ],
-                            [
-                                'cart_id' => cache()->get("cart_{$chatId}"),
-                                'meal_id' => cache()->get("meal_to_cart_{$chatId}"),
-                                'count' => $chatData
-                            ]
+                            ['cart_id' => cache()->get("cart_{$chatId}"), 'meal_id' => cache()->get("meal_to_cart_{$chatId}"),],
+                            ['count' => $chatData]
                         );
 
                         $this->deleteMessage($chatId, $messageId);

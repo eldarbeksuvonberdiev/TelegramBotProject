@@ -12,4 +12,9 @@ class CartItems extends Model
     {
         $this->belongsTo(Cart::class, 'cart_id');
     }
+
+    public function meal()
+    {
+        return $this->belongsTo(Meal::class, 'meal_id');
+    }
 }
