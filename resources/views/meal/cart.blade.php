@@ -5,6 +5,9 @@
 @section('content')
     <div class="row">
         <div class="col-12">
+            <a href="{{ route('meal') }}" class="btn btn-primary">Back</a>
+        </div>
+        <div class="col-12">
             <div class="form-group">
                 <label><strong>Select a companies</strong></label>
                 <form action="{{ route('meal.send') }}" method="post">

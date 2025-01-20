@@ -20,7 +20,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/meal',[MealController::class, 'index'])->name('meal');
     Route::get('/meal-create',[MealController::class, 'create'])->name('meal.create');
     Route::post('/meal-store',[MealController::class, 'store'])->name('meal.store');
-    Route::post('/meal-to-cart/{meal}',[MealController::class, 'addToCart'])->name('meal.toCart');
+    Route::get('/meal-to-cart/{meal}',[MealController::class, 'addToCart'])->name('meal.toCart');
     Route::get('/meal-cart',[MealController::class, 'cart'])->name('meal.cart');
     Route::post('/meal-send',[MealController::class, 'send'])->name('meal.send');
 });
