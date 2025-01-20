@@ -223,7 +223,7 @@ class TelegramRegistrationController extends Controller
             'reply_markup' => json_encode([
                 'inline_keyboard' => [
                     [
-                        ['text' => 'Confirm Order', 'callback_data' => "confirm"],
+                        ['text' => 'Confirm Order', 'callback_data' => "order"],
                         ['text' => 'Back to Menu', 'callback_data' => "menu"],
                     ]
                 ],
@@ -233,7 +233,18 @@ class TelegramRegistrationController extends Controller
         ]);
     }
 
+    public function deleteSeveralMessages($chatId, $messageId)
+    {
+        $cartMealsId = cache()->get("cart_{$chatId}", []);
 
+        $cartMeals = Cart::where('id', $cartMealsId)->first()->cartItems;
+
+        $count = 0;
+        foreach ($cartMeals as $cartMeal) {
+            $this->deleteMessage($chatId, $messageId - $count);
+            $count += 1;
+        }
+    }
 
     public function handle(Request $request)
     {
@@ -464,13 +475,19 @@ class TelegramRegistrationController extends Controller
 
             switch ($key) {
                 case 'meal_id':
+
                     $this->deleteMessage($chatId, $messageId);
+
                     $this->sendMessageMeal($chatId, Meal::where('id', $id)->first()->name);
 
                     cache()->put("meal_to_cart_{$chatId}", $id);
 
                     break;
                 case 'edit':
+
+                    $this->deleteSeveralMessages($chatId, $messageId);
+
+                    $this->deleteMessage($chatId, $messageId - 1);
 
                     cache()->put("cart_meal_portion_edit_{$chatId}", $id);
 
@@ -481,14 +498,23 @@ class TelegramRegistrationController extends Controller
                     break;
                 case 'delete':
 
-
+                    $this->deleteSeveralMessages($chatId, $messageId);
                     $this->deleteMessage($chatId, $messageId);
+                    $this->deleteMessage($chatId, $messageId + 1);
                     $this->deleteMessage($chatId, $messageId - 1);
 
                     CartItems::where('id', $id)->delete();
 
-                    $this->sendMenuAgain($chatId, cache()->get('menu_keyboards'), $additionToKeyboard);
-                    
+                    $cartMealsId = cache()->get("cart_{$chatId}", []);
+
+                    $cartMeals = Cart::where('id', $cartMealsId)->first()->cartItems;
+
+                    if (count($cartMeals) > 0) {
+                        $this->sendMenuAgain($chatId, cache()->get('menu_keyboards'), $additionToKeyboard);
+                    } else {
+                        $this->sendMenuAgain($chatId, cache()->get('menu_keyboards'), []);
+                    }
+
                     break;
             }
         } else {
@@ -496,14 +522,20 @@ class TelegramRegistrationController extends Controller
             switch ($chatData) {
                 case 'back':
                     cache()->forget("meal_to_cart_{$chatId}");
+
+                    $this->deleteSeveralMessages($chatId, $messageId);
+                    
                     $this->deleteMessage($chatId, $messageId);
+
                     $this->sendMenuAgain($chatId, cache()->get('menu_keyboards'), []);
+
                     break;
                 case 'cart':
+                    $this->deleteMessage($chatId, $messageId);
                     $this->sendCart($chatId, Cart::where('user_id', User::where('chat_id', $chatId)->first()->id)->first()->cartItems);
                     break;
                 case 'order':
-                    $tempCartId = cache()->get("cart_{$chatId}");
+                    $tempCartId = cache()->get("cart_{$chatId}", []);
                     $tempCart = Cart::where('id', $tempCartId)->first();
 
                     $order = Order::create([
@@ -521,19 +553,33 @@ class TelegramRegistrationController extends Controller
                         ]);
                     }
 
-                    $temp->delete();
+                    $tempCart->delete();
+
                     $this->sendMessage($chatId, "Your order has been recorded! :)");
+
                     break;
                 case 'menu':
+
                     $this->sendMenuAgain($chatId, cache()->get('menu_keyboards'), $additionToKeyboard);
+
+                    $cartMealsId = cache()->get("cart_{$chatId}", []);
+                    $cartMeals = Cart::where('id', $cartMealsId)->first()->cartItems;
+                    if (count($cartMeals) > 0) {
+                        $this->sendMenuAgain($chatId, cache()->get('menu_keyboards'), $additionToKeyboard);
+                    } else {
+                        $this->sendMenuAgain($chatId, cache()->get('menu_keyboards'), []);
+                    }
+
                     break;
                 default:
+
+                    // $this->deleteSeveralMessages($chatId, $messageId);
+
+                    $this->deleteMessage($chatId, $messageId);
 
                     $cartFor = cache()->get("cart_{$chatId}", []);
 
                     if (!$cartFor) {
-
-
 
                         $this->deleteMessage($chatId, $messageId);
                         $this->deleteMessage($chatId, $messageId - 1);
